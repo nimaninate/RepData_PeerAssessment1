@@ -1,0 +1,96 @@
+---
+title: "Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+unzip("repdata%2Fdata%2Factivity .zip")
+activity <- read.csv("activity.csv",
+                     header = TRUE,
+                     sep = ",",
+                     na.strings = "NA",
+                     colClasses = c(date = "Date")
+                     )
+str(activity)
+library(dplyr)
+total.steps.per.day <- activity %>%
+                       group_by(date) %>%
+                       summarize(total.steps = sum(steps, na.rm = FALSE))
+head(total.steps.per.day)
+hist(total.steps.per.day$total.steps, 
+     main = "Distribution of Total Number of Steps per Day", 
+     xlab = "Total Number of Steps per Day", 
+     ylab = "Frequency (Number of Days)", 
+     breaks=20,   col = "grey")
+mean(total.steps.per.day$total.steps, na.rm=TRUE)
+median(total.steps.per.day$total.steps, na.rm=TRUE)
+avg.steps.per.interval <- activity %>%
+                          group_by(interval) %>%
+                          summarize(avg.steps = mean(steps, na.rm = TRUE))
+head(avg.steps.per.interval)
+plot(strptime(sprintf("%04d", avg.steps.per.interval$interval), format="%H%M"),
+     avg.steps.per.interval$avg.steps, type = "l", 
+     main = "Average Daily Activity", 
+     xlab = "Time of Day (HH:MM)", 
+     ylab = "Average Number of Steps")
+filter(avg.steps.per.interval, avg.steps==max(avg.steps))
+sum(is.na(activity))
+activity.imputed <- inner_join(activity, 
+                               avg.steps.per.interval, 
+                               by="interval") %>% 
+                    mutate(steps=ifelse(is.na(steps),avg.steps,steps)) %>%
+                    select(date,interval,steps)
+head(activity.imputed)
+total.steps.per.day.imputed <- activity.imputed %>%
+                               group_by(date) %>%
+                               summarize(total.steps = sum(steps,na.rm=FALSE))
+hist(total.steps.per.day.imputed$total.steps, 
+     main = "Distribution of Total Number of Steps per Day", 
+     xlab = "Total Number of Steps per Day", 
+     ylab = "Frequency (Number of Days)", 
+     breaks=20,   col = "grey")
+mean(total.steps.per.day.imputed$total.steps)
+median(total.steps.per.day.imputed$total.steps)
+activity.imputed <- activity.imputed %>%
+    mutate(weekend.indicator =
+               as.factor(ifelse(weekdays(date) %in% c("Saturday","Sunday"),
+                                     "weekend","weekday")))
+head(activity.imputed)
+activity.pattern <- activity.imputed %>%
+                    group_by(weekend.indicator,interval) %>%
+                    summarize(avg.steps=mean(steps))
+library(ggplot2)
+library(scales)
+ggplot(activity.pattern, aes(strptime(sprintf("%04d", interval), format="%H%M"),
+                             avg.steps)) +
+    geom_line() +
+    facet_wrap(~ weekend.indicator, ncol=1) +
+    xlab("Time of Day") +
+    scale_x_datetime(labels = date_format("%H:%M"), 
+                     breaks = date_breaks("2 hour")) +
+    scale_y_continuous("Average Number of Steps") +
+    theme(plot.title = element_text(vjust=2)) +
+    ggtitle("Average Daily Activity\nWeekday vs. Weekend")
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
